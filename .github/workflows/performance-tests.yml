@@ -173,12 +173,213 @@ jobs:
           path: test-results/
           retention-days: 30
           
+      - name: Set up Java for Allure
+        if: always()
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          
+      - name: Install Allure CLI
+        if: always()
+        run: |
+          curl -o allure-2.24.0.tgz -L https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.tgz
+          sudo tar -zxf allure-2.24.0.tgz -C /opt/
+          sudo ln -s /opt/allure-2.24.0/bin/allure /usr/bin/allure
+          allure --version
+          
       - name: Generate Allure Report
         if: always()
-        uses: ./.github/workflows/allure-report-action.yml
+        run: |
+          echo "📊 Generating Allure Report..."
+          
+          # Create directories
+          mkdir -p allure-results
+          mkdir -p allure-report
+          
+          # Install Node.js for JSON processing (if not available)
+          node --version || (curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt-get install -y nodejs)
+          
+          # Create k6 to Allure converter
+          cat > convert-k6-to-allure.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          
+          function convertK6ToAllure(k6JsonPath, allureResultsDir) {
+            console.log(`Converting ${k6JsonPath} to Allure format...`);
+            
+            if (!fs.existsSync(k6JsonPath)) {
+              console.log(`K6 results file not found: ${k6JsonPath}`);
+              return;
+            }
+            
+            const k6Data = fs.readFileSync(k6JsonPath, 'utf8');
+            const lines = k6Data.split('\n').filter(line => line.trim());
+            
+            let testResults = {
+              name: `${{ github.event.inputs.test_type }} Performance Test`,
+              status: 'passed',
+              start: Date.now() - 300000, // 5 minutes ago
+              stop: Date.now(),
+              uuid: generateUuid(),
+              historyId: generateUuid(),
+              fullName: `${{ github.event.inputs.test_type }}_performance_test`,
+              labels: [
+                { name: 'suite', value: 'Performance Tests' },
+                { name: 'testClass', value: '${{ github.event.inputs.test_type }}' },
+                { name: 'testMethod', value: 'execute' },
+                { name: 'package', value: 'k6.performance' },
+                { name: 'framework', value: 'k6' },
+                { name: 'language', value: 'javascript' }
+              ],
+              links: [
+                { name: 'Repository', url: '${{ github.server_url }}/${{ github.repository }}' }
+              ],
+              steps: [],
+              attachments: []
+            };
+            
+            let httpReqDurations = [];
+            let httpReqFailed = 0;
+            let httpReqCount = 0;
+            let vus = 0;
+            
+            lines.forEach(line => {
+              try {
+                const data = JSON.parse(line);
+                
+                if (data.type === 'Point' && data.metric) {
+                  switch (data.metric) {
+                    case 'http_req_duration':
+                      httpReqDurations.push(data.data.value);
+                      break;
+                    case 'http_req_failed':
+                      if (data.data.value > 0) httpReqFailed++;
+                      break;
+                    case 'http_reqs':
+                      httpReqCount++;
+                      break;
+                    case 'vus':
+                      vus = Math.max(vus, data.data.value);
+                      break;
+                  }
+                }
+              } catch (e) {
+                // Skip invalid JSON lines
+              }
+            });
+            
+            // Calculate statistics
+            const avgDuration = httpReqDurations.length > 0 ? 
+              httpReqDurations.reduce((a, b) => a + b, 0) / httpReqDurations.length : 0;
+            const maxDuration = httpReqDurations.length > 0 ? Math.max(...httpReqDurations) : 0;
+            const minDuration = httpReqDurations.length > 0 ? Math.min(...httpReqDurations) : 0;
+            const failureRate = httpReqCount > 0 ? (httpReqFailed / httpReqCount) * 100 : 0;
+            
+            // Determine test status
+            testResults.status = failureRate > (${{ github.event.inputs.test_type }} === 'stress' ? 30 : 10) ? 'failed' : 'passed';
+            testResults.statusDetails = {
+              message: `${{ github.event.inputs.test_type }} test completed with ${failureRate.toFixed(2)}% failure rate`,
+              trace: `Target: ${{ github.event.inputs.target_endpoint }}\nRequests: ${httpReqCount}\nFailed: ${httpReqFailed}\nAvg Duration: ${avgDuration.toFixed(2)}ms\nMax VUs: ${vus}`
+            };
+            
+            // Add detailed steps
+            testResults.steps.push({
+              name: 'Performance Test Execution',
+              status: testResults.status,
+              start: testResults.start,
+              stop: testResults.stop,
+              parameters: [
+                { name: 'Test Type', value: '${{ github.event.inputs.test_type }}' },
+                { name: 'Target Endpoint', value: '${{ github.event.inputs.target_endpoint }}' },
+                { name: 'Virtual Users', value: '${{ github.event.inputs.v_users }}' },
+                { name: 'Test Duration', value: '${{ github.event.inputs.test_duration }}' },
+                { name: 'Total Requests', value: httpReqCount.toString() },
+                { name: 'Failed Requests', value: httpReqFailed.toString() },
+                { name: 'Failure Rate', value: `${failureRate.toFixed(2)}%` },
+                { name: 'Avg Response Time', value: `${avgDuration.toFixed(2)}ms` },
+                { name: 'Min Response Time', value: `${minDuration.toFixed(2)}ms` },
+                { name: 'Max Response Time', value: `${maxDuration.toFixed(2)}ms` },
+                { name: 'Max Virtual Users', value: vus.toString() }
+              ]
+            });
+            
+            // Write Allure result file
+            const resultFile = path.join(allureResultsDir, `${testResults.uuid}-result.json`);
+            fs.writeFileSync(resultFile, JSON.stringify(testResults, null, 2));
+            
+            console.log(`✅ Generated Allure result: ${resultFile}`);
+            console.log(`📊 Test Status: ${testResults.status}`);
+            console.log(`📈 Failure Rate: ${failureRate.toFixed(2)}%`);
+            return testResults;
+          }
+          
+          function generateUuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              const r = Math.random() * 16 | 0;
+              const v = c == 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
+          }
+          
+          // Process k6 results
+          const resultsPath = 'test-results';
+          const allureResultsDir = 'allure-results';
+          
+          // Process the specific test type results
+          const testType = '${{ github.event.inputs.test_type }}';
+          const k6ResultFile = `${resultsPath}/${testType}-test-results.json`;
+          
+          if (fs.existsSync(k6ResultFile)) {
+            convertK6ToAllure(k6ResultFile, allureResultsDir);
+          } else {
+            console.log(`⚠️  K6 result file not found: ${k6ResultFile}`);
+            // Create a basic failed test result
+            const failedResult = {
+              name: `${testType} Performance Test`,
+              status: 'broken',
+              start: Date.now() - 60000,
+              stop: Date.now(),
+              uuid: generateUuid(),
+              statusDetails: {
+                message: 'Test execution failed - no results file generated',
+                trace: 'Check the k6 execution logs for more details'
+              }
+            };
+            fs.writeFileSync(`${allureResultsDir}/${failedResult.uuid}-result.json`, JSON.stringify(failedResult, null, 2));
+          }
+          EOF
+          
+          # Run the converter
+          node convert-k6-to-allure.js
+          
+          # Create environment file for Allure
+          cat > allure-results/environment.properties << EOF
+          Test.Type=${{ github.event.inputs.test_type }}
+          Target.Endpoint=${{ github.event.inputs.target_endpoint }}
+          Virtual.Users=${{ github.event.inputs.v_users }}
+          Test.Duration=${{ github.event.inputs.test_duration }}
+          Authentication=${{ github.event.inputs.auth_type }}
+          Execution.Time=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          GitHub.Run.ID=${{ github.run_id }}
+          GitHub.Repository=${{ github.repository }}
+          GitHub.Actor=${{ github.actor }}
+          GitHub.Workflow=${{ github.workflow }}
+          EOF
+          
+          # Generate the Allure report
+          echo "🔄 Generating Allure HTML report..."
+          allure generate allure-results -o allure-report --clean
+          
+          echo "✅ Allure report generated successfully"
+          
+      - name: Deploy Allure Report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          results_path: test-results/
-          test_type: ${{ github.event.inputs.test_type }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          destination_dir: allure-report
           
       - name: Display Test Summary
         if: always()
