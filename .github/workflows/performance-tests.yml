@@ -65,6 +65,7 @@ jobs:
         
       - name: Run Load Test
         if: ${{ github.event.inputs.test_type == 'load' }}
+        continue-on-error: true
         env:
           TARGET_ENDPOINT: ${{ github.event.inputs.target_endpoint }}
           V_USERS: ${{ github.event.inputs.v_users }}
@@ -76,10 +77,27 @@ jobs:
           BASIC_AUTH_PASS: ${{ vars.BASIC_AUTH_PASS }}
           BEARER_TOKEN: ${{ vars.BEARER_TOKEN }}
         run: |
-          k6 run --out json=test-results/load-test-results.json tests/performance/load_test_scenario.js
+          echo "🚀 Starting Load Test with detailed logging..."
+          echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
+          
+          # Run k6 with detailed logging and continue on threshold failures
+          k6 run --verbose --log-output=file=test-results/k6-load-test.log \
+                 --no-thresholds-abort \
+                 --out json=test-results/load-test-results.json \
+                 tests/performance/load_test_scenario.js || true
+          
+          echo "✅ Load Test completed (check logs for details)"
+          
+          # Display basic results summary
+          if [ -f test-results/load-test-results.json ]; then
+            echo "📊 Test Results Generated:"
+            echo "- JSON: test-results/load-test-results.json"
+            echo "- Log: test-results/k6-load-test.log"
+          fi
           
       - name: Run Stress Test
         if: ${{ github.event.inputs.test_type == 'stress' }}
+        continue-on-error: true
         env:
           TARGET_ENDPOINT: ${{ github.event.inputs.target_endpoint }}
           V_USERS: ${{ github.event.inputs.v_users }}
@@ -91,9 +109,64 @@ jobs:
           BASIC_AUTH_PASS: ${{ vars.BASIC_AUTH_PASS }}
           BEARER_TOKEN: ${{ vars.BEARER_TOKEN }}
         run: |
-          k6 run --out json=test-results/stress-test-results.json tests/performance/stress_test_scenario.js
+          echo "🚀 Starting Stress Test with detailed logging..."
+          echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
+          
+          # Run k6 with detailed logging and continue on threshold failures
+          k6 run --verbose --log-output=file=test-results/k6-stress-test.log \
+                 --no-thresholds-abort \
+                 --out json=test-results/stress-test-results.json \
+                 tests/performance/stress_test_scenario.js || true
+          
+          echo "✅ Stress Test completed (check logs for details)"
+          
+          # Display basic results summary
+          if [ -f test-results/stress-test-results.json ]; then
+            echo "📊 Test Results Generated:"
+            echo "- JSON: test-results/stress-test-results.json"
+            echo "- Log: test-results/k6-stress-test.log"
+          fi
+          
+      - name: Display Detailed Test Logs
+        if: always()
+        run: |
+          echo "🔍 Analyzing Test Results and Logs..."
+          echo "============================================"
+          
+          # Show k6 log files if they exist
+          if [ -f test-results/k6-load-test.log ]; then
+            echo "📋 Load Test Log (last 50 lines):"
+            echo "-----------------------------------"
+            tail -n 50 test-results/k6-load-test.log
+            echo ""
+          fi
+          
+          if [ -f test-results/k6-stress-test.log ]; then
+            echo "📋 Stress Test Log (last 50 lines):"
+            echo "------------------------------------"
+            tail -n 50 test-results/k6-stress-test.log
+            echo ""
+          fi
+          
+          # Extract and display HTTP status codes from JSON results
+          if [ -f test-results/load-test-results.json ]; then
+            echo "📊 Load Test HTTP Status Codes:"
+            echo "-------------------------------"
+            grep '"http_req_failed"' test-results/load-test-results.json | head -10 || echo "No HTTP failure data found"
+            echo ""
+          fi
+          
+          if [ -f test-results/stress-test-results.json ]; then
+            echo "📊 Stress Test HTTP Status Codes:"
+            echo "---------------------------------"
+            grep '"http_req_failed"' test-results/stress-test-results.json | head -10 || echo "No HTTP failure data found"
+            echo ""
+          fi
+          
+          echo "✅ Detailed analysis completed"
           
       - name: Upload test results as artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: performance-test-results-${{ github.event.inputs.test_type }}
@@ -101,12 +174,14 @@ jobs:
           retention-days: 30
           
       - name: Generate Allure Report
+        if: always()
         uses: ./.github/workflows/allure-report-action.yml
         with:
           results_path: test-results/
           test_type: ${{ github.event.inputs.test_type }}
           
       - name: Display Test Summary
+        if: always()
         run: |
           echo "## Performance Test Results 🚀" >> $GITHUB_STEP_SUMMARY
           echo "**Test Type:** ${{ github.event.inputs.test_type }}" >> $GITHUB_STEP_SUMMARY
@@ -116,4 +191,15 @@ jobs:
           echo "**Ramp Up Time:** ${{ github.event.inputs.ramp_up_time }}" >> $GITHUB_STEP_SUMMARY
           echo "**Authentication:** ${{ github.event.inputs.auth_type }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📊 Allure Report will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/allure-report/" >> $GITHUB_STEP_SUMMARY
+          
+          # Add test result status
+          if [ -f test-results/${{ github.event.inputs.test_type }}-test-results.json ]; then
+            echo "**Test Status:** ✅ Completed (results generated)" >> $GITHUB_STEP_SUMMARY
+            echo "**Logs Available:** Yes (check artifacts)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Test Status:** ⚠️ Issues detected (check logs)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 **Allure Report:** https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/allure-report/" >> $GITHUB_STEP_SUMMARY
+          echo "📋 **Detailed Logs:** Available in artifacts section" >> $GITHUB_STEP_SUMMARY

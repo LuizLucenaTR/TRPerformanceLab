@@ -76,19 +76,43 @@ function getAuthHeaders() {
 // Main test function
 export default function () {
   const headers = getAuthHeaders();
+  const vuId = __VU;
+  const iterId = __ITER;
   
   // Health check endpoint - typical load test scenario
   const healthResponse = http.get(`${TARGET_ENDPOINT}/health`, { headers });
   
-  // Check response status
+  // Log detailed request information
+  console.log(`[VU:${vuId}|IT:${iterId}] Health Check: ${healthResponse.status} | ${Math.round(healthResponse.timings.duration)}ms | ${TARGET_ENDPOINT}/health`);
+  
+  // Check response status with detailed error logging
   const healthCheckPassed = check(healthResponse, {
-    'Health check status is 200': (r) => r.status === 200,
-    'Health check response time < 500ms': (r) => r.timings.duration < 500,
-    'Health check has valid response': (r) => r.body.length > 0,
+    'Health check status is 200': (r) => {
+      const passed = r.status === 200;
+      if (!passed) {
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Health check failed: Expected 200, got ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
+      }
+      return passed;
+    },
+    'Health check response time < 500ms': (r) => {
+      const passed = r.timings.duration < 500;
+      if (!passed) {
+        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  Health check slow: ${Math.round(r.timings.duration)}ms (threshold: 500ms)`);
+      }
+      return passed;
+    },
+    'Health check has valid response': (r) => {
+      const passed = r.body && r.body.length > 0;
+      if (!passed) {
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Health check empty response: ${r.status}`);
+      }
+      return passed;
+    },
   });
 
   if (!healthCheckPassed) {
     errorRate.add(1);
+    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 Health check FAILED - incrementing error rate`);
   }
 
   // Simulate user think time (typical for load testing)
@@ -97,24 +121,46 @@ export default function () {
   // Additional API endpoint test (simulate typical user workflow)
   const dataResponse = http.get(`${TARGET_ENDPOINT}/data`, { headers });
   
+  // Log detailed request information
+  console.log(`[VU:${vuId}|IT:${iterId}] Data Request: ${dataResponse.status} | ${Math.round(dataResponse.timings.duration)}ms | ${TARGET_ENDPOINT}/data`);
+  
   const dataCheckPassed = check(dataResponse, {
-    'Data endpoint status is 200 or 404': (r) => r.status === 200 || r.status === 404,
-    'Data endpoint response time < 1000ms': (r) => r.timings.duration < 1000,
+    'Data endpoint status is 200 or 404': (r) => {
+      const passed = r.status === 200 || r.status === 404;
+      if (!passed) {
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Data endpoint unexpected status: ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
+      }
+      return passed;
+    },
+    'Data endpoint response time < 1000ms': (r) => {
+      const passed = r.timings.duration < 1000;
+      if (!passed) {
+        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  Data endpoint slow: ${Math.round(r.timings.duration)}ms (threshold: 1000ms)`);
+      }
+      return passed;
+    },
   });
 
   if (!dataCheckPassed && dataResponse.status !== 404) {
     errorRate.add(1);
+    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 Data endpoint FAILED - incrementing error rate`);
   }
 
-  // Log important metrics for debugging
-  if (__VU === 1 && __ITER === 1) {
-    console.log(`Load Test Configuration:`);
-    console.log(`Target: ${TARGET_ENDPOINT}`);
-    console.log(`VUsers: ${V_USERS}`);
-    console.log(`Duration: ${TEST_DURATION}`);
-    console.log(`Ramp Up: ${RAMP_UP_TIME}`);
-    console.log(`RPS Rate: ${RPS_RATE || 'Not specified'}`);
-    console.log(`Auth Type: ${AUTH_TYPE}`);
+  // Log periodic summaries (every 10th iteration for VU 1)
+  if (vuId === 1 && iterId % 10 === 0) {
+    console.log(`[VU:${vuId}|IT:${iterId}] 📊 Periodic Summary - Health: ${healthResponse.status} (${Math.round(healthResponse.timings.duration)}ms), Data: ${dataResponse.status} (${Math.round(dataResponse.timings.duration)}ms)`);
+  }
+
+  // Log important metrics for debugging (first iteration only)
+  if (vuId === 1 && iterId === 1) {
+    console.log(`🚀 Load Test Configuration:`);
+    console.log(`   Target: ${TARGET_ENDPOINT}`);
+    console.log(`   VUsers: ${V_USERS}`);
+    console.log(`   Duration: ${TEST_DURATION}`);
+    console.log(`   Ramp Up: ${RAMP_UP_TIME}`);
+    console.log(`   RPS Rate: ${RPS_RATE || 'Not specified'}`);
+    console.log(`   Auth Type: ${AUTH_TYPE}`);
+    console.log(`   Headers: ${JSON.stringify(headers, null, 2)}`);
   }
 }
 
