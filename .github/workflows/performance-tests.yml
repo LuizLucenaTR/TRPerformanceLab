@@ -43,15 +43,6 @@ on:
           - basic_auth
           - bearer_token
         default: 'none'
-      basic_auth_user:
-        description: 'Username for Basic Auth (required if auth_type is basic_auth)'
-        required: false
-        type: string
-      basic_auth_pass_secret_name:
-        description: 'Name of GitHub Secret containing Basic Auth password'
-        required: false
-        type: string
-        default: 'BASIC_AUTH_PASSWORD'
       bearer_token_secret_name:
         description: 'Name of GitHub Secret containing Bearer Token'
         required: false
@@ -86,8 +77,8 @@ jobs:
           RAMP_UP_TIME: ${{ github.event.inputs.ramp_up_time }}
           RPS_RATE: ${{ github.event.inputs.rps_rate }}
           AUTH_TYPE: ${{ github.event.inputs.auth_type }}
-          BASIC_AUTH_USER: ${{ github.event.inputs.basic_auth_user }}
-          BASIC_AUTH_PASS: ${{ github.event.inputs.auth_type == 'basic_auth' && secrets[github.event.inputs.basic_auth_pass_secret_name] || '' }}
+          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
+          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
           BEARER_TOKEN: ${{ github.event.inputs.auth_type == 'bearer_token' && secrets[github.event.inputs.bearer_token_secret_name] || '' }}
         run: |
           k6 run --out json=test-results/load-test-results.json tests/performance/load_test_scenario.js
@@ -101,8 +92,8 @@ jobs:
           RAMP_UP_TIME: ${{ github.event.inputs.ramp_up_time }}
           RPS_RATE: ${{ github.event.inputs.rps_rate }}
           AUTH_TYPE: ${{ github.event.inputs.auth_type }}
-          BASIC_AUTH_USER: ${{ github.event.inputs.basic_auth_user }}
-          BASIC_AUTH_PASS: ${{ github.event.inputs.auth_type == 'basic_auth' && secrets[github.event.inputs.basic_auth_pass_secret_name] || '' }}
+          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
+          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
           BEARER_TOKEN: ${{ github.event.inputs.auth_type == 'bearer_token' && secrets[github.event.inputs.bearer_token_secret_name] || '' }}
         run: |
           k6 run --out json=test-results/stress-test-results.json tests/performance/stress_test_scenario.js
