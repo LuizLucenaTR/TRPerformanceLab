@@ -110,60 +110,59 @@ https://SEU-USUARIO.github.io/SEU-REPOSITORIO/allure-report/
 
 ---
 
-## 🔐 Configuração de Secrets (Para APIs com Autenticação)
+## 🔐 Configuração de Variables (Para APIs com Autenticação)
 
-### 1️⃣ **Como Adicionar Secrets**
+### 1️⃣ **Como Adicionar Variables**
 1. Vá para seu repositório no GitHub
 2. Clique em **Settings** → **Secrets and variables** → **Actions**
-3. Clique **"New repository secret"**
-4. Adicione o **Name** e **Secret** conforme necessário
+3. Na seção **Variables**, clique **"New repository variable"**
+4. Adicione o **Name** e **Value** conforme necessário
 
-### 2️⃣ **Secrets Recomendados**
+### 2️⃣ **Variables Necessárias**
 
-| Nome do Secret | Descrição | Quando Usar |
+| Nome da Variable | Descrição | Quando Usar |
 |---|---|---|
 | `BASIC_AUTH_USER` | Usuário para Basic Authentication | Quando `auth_type` = `basic_auth` |
 | `BASIC_AUTH_PASS` | Senha para Basic Authentication | Quando `auth_type` = `basic_auth` |
 | `BEARER_TOKEN` | Token para Bearer Authentication | Quando `auth_type` = `bearer_token` |
-| `API_TEST_TOKEN` | Token específico da API de teste | Para APIs customizadas |
 
 ### 3️⃣ **Exemplo Passo a Passo - Basic Auth**
 
-Para configurar Basic Authentication, você precisa criar **2 secrets**:
+Para configurar Basic Authentication, você precisa criar **2 variables**:
 
-#### **Secret 1 - Usuário:**
+#### **Variable 1 - Usuário:**
 1. **Settings** → **Secrets and variables** → **Actions**
-2. **New repository secret**
+2. Na seção **Variables**, clique **"New repository variable"**
 3. Preencher:
    - **Name**: `BASIC_AUTH_USER`
-   - **Secret**: `seu-usuario-aqui` (ex: `admin`, `testuser`)
-4. **Add secret**
+   - **Value**: `seu-usuario-aqui` (ex: `admin`, `testuser`)
+4. **Add variable**
 
-#### **Secret 2 - Senha:**
-1. **New repository secret** (novamente)
+#### **Variable 2 - Senha:**
+1. **New repository variable** (novamente)
 2. Preencher:
    - **Name**: `BASIC_AUTH_PASS`
-   - **Secret**: `sua-senha-aqui` (ex: `minhaSenha123!`)
-3. **Add secret**
+   - **Value**: `sua-senha-aqui` (ex: `minhaSenha123!`)
+3. **Add variable**
 
 ### 4️⃣ **Exemplo Passo a Passo - Bearer Token**
 
 1. **Settings** → **Secrets and variables** → **Actions**
-2. **New repository secret**
+2. Na seção **Variables**, clique **"New repository variable"**
 3. Preencher:
    - **Name**: `BEARER_TOKEN`
-   - **Secret**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...` (seu token)
-4. **Add secret**
+   - **Value**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...` (seu token)
+4. **Add variable**
 
 ### 5️⃣ **Resumo por Tipo de Autenticação**
 
-| Tipo de Auth | Secrets Necessários | Observações |
+| Tipo de Auth | Variables Necessárias | Observações |
 |---|---|---|
-| **none** | Nenhum | Para APIs públicas |
-| **basic_auth** | `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` | Ambos são obrigatórios |
+| **none** | Nenhuma | Para APIs públicas |
+| **basic_auth** | `BASIC_AUTH_USER` e `BASIC_AUTH_PASS` | Ambas são obrigatórias |
 | **bearer_token** | `BEARER_TOKEN` | Token JWT ou similar |
 
-**⚠️ IMPORTANTE:** Para Basic Auth, você **DEVE** criar os dois secrets. O workflow usa automaticamente esses nomes fixos - não é mais possível inserir usuário/senha como parâmetros no workflow.
+**⚠️ IMPORTANTE:** Para qualquer tipo de autenticação, você **DEVE** criar as variables correspondentes. O workflow usa automaticamente esses nomes fixos - não é mais possível inserir credenciais como parâmetros no workflow.
 
 ---
 
@@ -185,7 +184,6 @@ Para configurar Basic Authentication, você precisa criar **2 secrets**:
 | **Ramp Up Time** | Tempo para atingir máx VUs | `1m` | ✅ |
 | **RPS Rate** | Requisições por segundo | `50` | ❌ |
 | **Auth Type** | Tipo de autenticação | `none`, `basic_auth`, `bearer_token` | ✅ |
-| **Bearer Token Secret** | Nome do secret do token | `BEARER_TOKEN` | ❌ |
 
 ### 3️⃣ **Exemplos de Configuração**
 
@@ -209,7 +207,7 @@ Test Duration: 5m
 Ramp Up Time: 1m
 Auth Type: basic_auth
 
-⚠️  Certifique-se de configurar os secrets:
+⚠️  Certifique-se de configurar as variables:
 - BASIC_AUTH_USER (usuário)
 - BASIC_AUTH_PASS (senha)
 ```
@@ -223,7 +221,9 @@ Test Duration: 10m
 Ramp Up Time: 2m
 RPS Rate: 100
 Auth Type: bearer_token
-Bearer Token Secret Name: BEARER_TOKEN
+
+⚠️  Certifique-se de configurar a variable:
+- BEARER_TOKEN (seu token JWT/API)
 ```
 
 ---

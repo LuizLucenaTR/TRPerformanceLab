@@ -43,11 +43,6 @@ on:
           - basic_auth
           - bearer_token
         default: 'none'
-      bearer_token_secret_name:
-        description: 'Name of GitHub Secret containing Bearer Token'
-        required: false
-        type: string
-        default: 'BEARER_TOKEN'
 
 jobs:
   run_performance_test:
@@ -77,9 +72,9 @@ jobs:
           RAMP_UP_TIME: ${{ github.event.inputs.ramp_up_time }}
           RPS_RATE: ${{ github.event.inputs.rps_rate }}
           AUTH_TYPE: ${{ github.event.inputs.auth_type }}
-          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
-          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
-          BEARER_TOKEN: ${{ github.event.inputs.auth_type == 'bearer_token' && secrets[github.event.inputs.bearer_token_secret_name] || '' }}
+          BASIC_AUTH_USER: ${{ vars.BASIC_AUTH_USER }}
+          BASIC_AUTH_PASS: ${{ vars.BASIC_AUTH_PASS }}
+          BEARER_TOKEN: ${{ vars.BEARER_TOKEN }}
         run: |
           k6 run --out json=test-results/load-test-results.json tests/performance/load_test_scenario.js
           
@@ -92,9 +87,9 @@ jobs:
           RAMP_UP_TIME: ${{ github.event.inputs.ramp_up_time }}
           RPS_RATE: ${{ github.event.inputs.rps_rate }}
           AUTH_TYPE: ${{ github.event.inputs.auth_type }}
-          BASIC_AUTH_USER: ${{ secrets.BASIC_AUTH_USER }}
-          BASIC_AUTH_PASS: ${{ secrets.BASIC_AUTH_PASS }}
-          BEARER_TOKEN: ${{ github.event.inputs.auth_type == 'bearer_token' && secrets[github.event.inputs.bearer_token_secret_name] || '' }}
+          BASIC_AUTH_USER: ${{ vars.BASIC_AUTH_USER }}
+          BASIC_AUTH_PASS: ${{ vars.BASIC_AUTH_PASS }}
+          BEARER_TOKEN: ${{ vars.BEARER_TOKEN }}
         run: |
           k6 run --out json=test-results/stress-test-results.json tests/performance/stress_test_scenario.js
           
