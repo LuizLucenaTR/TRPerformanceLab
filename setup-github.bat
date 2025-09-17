@@ -96,9 +96,8 @@ echo ✅ .gitignore criado
 git remote | findstr "origin" >nul
 if errorlevel 1 (
     :: Adicionar remote origin
-    set REPO_URL=https://github.com/%GITHUB_USERNAME%/%REPO_NAME%.git
-    git remote add origin !REPO_URL!
-    echo ✅ Remote origin adicionado: !REPO_URL!
+    git remote add origin https://github.com/%GITHUB_USERNAME%/%REPO_NAME%.git
+    echo ✅ Remote origin adicionado: https://github.com/%GITHUB_USERNAME%/%REPO_NAME%.git
 ) else (
     echo 🔗 Remote origin já existe
 )
@@ -149,6 +148,21 @@ echo.
 echo 📤 Adicionando arquivos ao Git...
 git add .
 
+:: Verificar e criar branch main se necessário
+git branch | findstr "main" >nul
+if errorlevel 1 (
+    echo 📝 Criando branch main...
+    git checkout -b main 2>nul
+    if errorlevel 1 (
+        echo ✅ Branch main já existe ou foi criada
+    ) else (
+        echo ✅ Branch main criada
+    )
+) else (
+    echo ✅ Branch main já existe
+    git checkout main 2>nul
+)
+
 :: Fazer commit
 echo 📝 Fazendo commit...
 git commit -m "feat: Initial setup - Performance testing pipeline with k6 and GitHub Actions"
@@ -163,12 +177,22 @@ echo 🚀 Enviando para GitHub...
 git push -u origin main
 if errorlevel 1 (
     echo ⚠️  Erro no push. Tentando sincronizar...
-    git pull origin main --allow-unrelated-histories
-    git push origin main
+    git pull origin main --allow-unrelated-histories 2>nul
     if errorlevel 1 (
-        echo ❌ Erro no push. Execute manualmente: git push -u origin main
+        echo 📝 Repositório remoto vazio, fazendo push inicial...
+        git push -u origin main
+        if errorlevel 1 (
+            echo ❌ Erro no push. Veja comandos manuais abaixo.
+        ) else (
+            echo ✅ Push inicial realizado com sucesso!
+        )
     ) else (
-        echo ✅ Push realizado após sincronização!
+        git push origin main
+        if errorlevel 1 (
+            echo ❌ Erro no push final. Veja comandos manuais abaixo.
+        ) else (
+            echo ✅ Push realizado após sincronização!
+        )
     )
 ) else (
     echo ✅ Push realizado com sucesso!
@@ -194,6 +218,16 @@ echo 🔐 Para APIs com autenticação, configure os Secrets:
 echo Settings ^> Secrets and variables ^> Actions
 echo - BASIC_AUTH_PASSWORD (para Basic Auth)
 echo - BEARER_TOKEN (para Bearer Token)
+echo.
+echo 🔧 SE AINDA HOUVER PROBLEMAS, EXECUTE MANUALMENTE:
+echo git remote -v
+echo git status
+echo git add .
+echo git commit -m "Initial setup"
+echo git branch -M main
+echo git push -u origin main
+echo.
+echo 💡 Ou use o PowerShell: .\setup-github.ps1 -GitHubUsername "%GITHUB_USERNAME%"
 echo.
 
 pause

@@ -154,6 +154,32 @@ https://github.com/SEU-USUARIO/SEU-REPO/settings
 
 ## 🔍 Troubleshooting
 
+### ❌ Erro "src refspec main does not match any"
+```powershell
+# SOLUÇÃO COMPLETA:
+# 1. Verificar e corrigir remote
+git remote -v
+git remote remove origin
+git remote add origin https://github.com/SEU-USUARIO/SEU-REPO.git
+
+# 2. Criar branch main
+git checkout -b main
+git add .
+git commit -m "Initial setup"
+
+# 3. Push inicial
+git push -u origin main
+```
+
+### 🛠️ Script Automático de Correção
+```cmd
+# Use o script de correção
+fix-git-push.bat SEU-USUARIO-GITHUB
+
+# Ou PowerShell (mais confiável)
+.\setup-github.ps1 -GitHubUsername "SEU-USUARIO"
+```
+
 ### Push Rejeitado
 ```powershell
 # Opção 1: Sync e retry
@@ -162,6 +188,10 @@ git push origin main
 
 # Opção 2: Force push (cuidado!)
 git push --force-with-lease origin main
+
+# Opção 3: Reset completo
+git branch -M main
+git push -u origin main
 ```
 
 ### Workflow Não Aparece
