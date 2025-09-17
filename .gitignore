@@ -1,0 +1,28 @@
+# Node modules
+node_modules/
+
+# Test results
+test-results/
+allure-results/
+allure-report/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# k6 temporary files
+*.json.tmp

@@ -1,0 +1,132 @@
+name: Performance Tests (Load & Stress)
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test to run'
+        required: true
+        type: choice
+        options:
+          - load
+          - stress
+        default: 'load'
+      target_endpoint:
+        description: 'Base URL of the API to test (e.g., https://api.example.com)'
+        required: true
+        type: string
+      v_users:
+        description: 'Number of Virtual Users (VUs) / Concurrency'
+        required: true
+        type: number
+        default: 10
+      test_duration:
+        description: 'Duration of the test (e.g., 5m, 30s)'
+        required: true
+        type: string
+        default: '5m'
+      ramp_up_time:
+        description: 'Time to reach max VUs (e.g., 1m)'
+        required: true
+        type: string
+        default: '1m'
+      rps_rate:
+        description: 'Requests Per Second rate (optional)'
+        required: false
+        type: number
+      auth_type:
+        description: 'Authentication type'
+        required: true
+        type: choice
+        options:
+          - none
+          - basic_auth
+          - bearer_token
+        default: 'none'
+      basic_auth_user:
+        description: 'Username for Basic Auth (required if auth_type is basic_auth)'
+        required: false
+        type: string
+      basic_auth_pass_secret_name:
+        description: 'Name of GitHub Secret containing Basic Auth password'
+        required: false
+        type: string
+        default: 'BASIC_AUTH_PASSWORD'
+      bearer_token_secret_name:
+        description: 'Name of GitHub Secret containing Bearer Token'
+        required: false
+        type: string
+        default: 'BEARER_TOKEN'
+
+jobs:
+  run_performance_test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup k6
+        run: |
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+          
+      - name: Create results directory
+        run: mkdir -p test-results
+        
+      - name: Run Load Test
+        if: ${{ github.event.inputs.test_type == 'load' }}
+        env:
+          TARGET_ENDPOINT: ${{ github.event.inputs.target_endpoint }}
+          V_USERS: ${{ github.event.inputs.v_users }}
+          TEST_DURATION: ${{ github.event.inputs.test_duration }}
+          RAMP_UP_TIME: ${{ github.event.inputs.ramp_up_time }}
+          RPS_RATE: ${{ github.event.inputs.rps_rate }}
+          AUTH_TYPE: ${{ github.event.inputs.auth_type }}
+          BASIC_AUTH_USER: ${{ github.event.inputs.basic_auth_user }}
+          BASIC_AUTH_PASS: ${{ github.event.inputs.auth_type == 'basic_auth' && secrets[github.event.inputs.basic_auth_pass_secret_name] || '' }}
+          BEARER_TOKEN: ${{ github.event.inputs.auth_type == 'bearer_token' && secrets[github.event.inputs.bearer_token_secret_name] || '' }}
+        run: |
+          k6 run --out json=test-results/load-test-results.json tests/performance/load_test_scenario.js
+          
+      - name: Run Stress Test
+        if: ${{ github.event.inputs.test_type == 'stress' }}
+        env:
+          TARGET_ENDPOINT: ${{ github.event.inputs.target_endpoint }}
+          V_USERS: ${{ github.event.inputs.v_users }}
+          TEST_DURATION: ${{ github.event.inputs.test_duration }}
+          RAMP_UP_TIME: ${{ github.event.inputs.ramp_up_time }}
+          RPS_RATE: ${{ github.event.inputs.rps_rate }}
+          AUTH_TYPE: ${{ github.event.inputs.auth_type }}
+          BASIC_AUTH_USER: ${{ github.event.inputs.basic_auth_user }}
+          BASIC_AUTH_PASS: ${{ github.event.inputs.auth_type == 'basic_auth' && secrets[github.event.inputs.basic_auth_pass_secret_name] || '' }}
+          BEARER_TOKEN: ${{ github.event.inputs.auth_type == 'bearer_token' && secrets[github.event.inputs.bearer_token_secret_name] || '' }}
+        run: |
+          k6 run --out json=test-results/stress-test-results.json tests/performance/stress_test_scenario.js
+          
+      - name: Upload test results as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results-${{ github.event.inputs.test_type }}
+          path: test-results/
+          retention-days: 30
+          
+      - name: Generate Allure Report
+        uses: ./.github/workflows/allure-report-action.yml
+        with:
+          results_path: test-results/
+          test_type: ${{ github.event.inputs.test_type }}
+          
+      - name: Display Test Summary
+        run: |
+          echo "## Performance Test Results 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Type:** ${{ github.event.inputs.test_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Endpoint:** ${{ github.event.inputs.target_endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Virtual Users:** ${{ github.event.inputs.v_users }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Duration:** ${{ github.event.inputs.test_duration }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Ramp Up Time:** ${{ github.event.inputs.ramp_up_time }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Authentication:** ${{ github.event.inputs.auth_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Allure Report will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/allure-report/" >> $GITHUB_STEP_SUMMARY
