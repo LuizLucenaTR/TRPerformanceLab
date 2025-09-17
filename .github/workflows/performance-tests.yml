@@ -67,8 +67,24 @@ jobs:
           k6 version
           
       - name: Create results directory
-        run: mkdir -p test-results
-        
+        run: |
+          mkdir -p test-results
+          echo "📁 Results directory created: $(pwd)/test-results"
+          ls -la test-results/
+          
+      - name: Debug Test Configuration
+        run: |
+          echo "🔍 Test Configuration Debug:"
+          echo "Test Type: '${{ github.event.inputs.test_type }}'"
+          echo "Target Endpoint: '${{ github.event.inputs.target_endpoint }}'"
+          echo "Virtual Users: '${{ github.event.inputs.v_users }}'"
+          echo "Test Duration: '${{ github.event.inputs.test_duration }}'"
+          echo "Auth Type: '${{ github.event.inputs.auth_type }}'"
+          echo ""
+          echo "Condition evaluation:"
+          echo "test_type == 'load': ${{ github.event.inputs.test_type == 'load' }}"
+          echo "test_type == 'stress': ${{ github.event.inputs.test_type == 'stress' }}"
+          
       - name: Run Load Test
         if: ${{ github.event.inputs.test_type == 'load' }}
         continue-on-error: true
@@ -87,6 +103,7 @@ jobs:
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
           
           # Run k6 with detailed logging and continue on threshold failures
+          echo "🚀 Executing k6 load test..."
           k6 run --verbose --log-output=file=test-results/k6-load-test.log \
                  --no-thresholds-abort \
                  --out json=test-results/load-test-results.json \
@@ -94,11 +111,24 @@ jobs:
           
           echo "✅ Load Test completed (check logs for details)"
           
+          # Verify and display results
+          echo "📂 Checking test results directory:"
+          ls -la test-results/ || echo "❌ test-results directory not found"
+          
           # Display basic results summary
           if [ -f test-results/load-test-results.json ]; then
             echo "📊 Test Results Generated:"
-            echo "- JSON: test-results/load-test-results.json"
+            echo "- JSON: test-results/load-test-results.json ($(wc -l < test-results/load-test-results.json) lines)"
             echo "- Log: test-results/k6-load-test.log"
+          else
+            echo "❌ JSON results file not created, creating placeholder..."
+            echo '{"error": "k6 execution failed", "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}' > test-results/load-test-results.json
+          fi
+          
+          # Ensure log file exists
+          if [ ! -f test-results/k6-load-test.log ]; then
+            echo "❌ Log file not created, creating placeholder..."
+            echo "Load test execution failed - no k6 log generated" > test-results/k6-load-test.log
           fi
           
       - name: Run Stress Test
@@ -119,6 +149,7 @@ jobs:
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
           
           # Run k6 with detailed logging and continue on threshold failures
+          echo "🚀 Executing k6 stress test..."
           k6 run --verbose --log-output=file=test-results/k6-stress-test.log \
                  --no-thresholds-abort \
                  --out json=test-results/stress-test-results.json \
@@ -126,11 +157,24 @@ jobs:
           
           echo "✅ Stress Test completed (check logs for details)"
           
+          # Verify and display results
+          echo "📂 Checking test results directory:"
+          ls -la test-results/ || echo "❌ test-results directory not found"
+          
           # Display basic results summary
           if [ -f test-results/stress-test-results.json ]; then
             echo "📊 Test Results Generated:"
-            echo "- JSON: test-results/stress-test-results.json"
+            echo "- JSON: test-results/stress-test-results.json ($(wc -l < test-results/stress-test-results.json) lines)"
             echo "- Log: test-results/k6-stress-test.log"
+          else
+            echo "❌ JSON results file not created, creating placeholder..."
+            echo '{"error": "k6 execution failed", "timestamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"}' > test-results/stress-test-results.json
+          fi
+          
+          # Ensure log file exists
+          if [ ! -f test-results/k6-stress-test.log ]; then
+            echo "❌ Log file not created, creating placeholder..."
+            echo "Stress test execution failed - no k6 log generated" > test-results/k6-stress-test.log
           fi
           
       - name: Display Detailed Test Logs
@@ -171,6 +215,34 @@ jobs:
           
           echo "✅ Detailed analysis completed"
           
+      - name: Prepare artifacts for upload
+        if: always()
+        run: |
+          echo "🗂️ Preparing artifacts for upload..."
+          echo "Current directory: $(pwd)"
+          echo "test-results contents:"
+          ls -la test-results/ || echo "test-results directory not found"
+          
+          # Ensure test-results directory exists with some content
+          mkdir -p test-results
+          
+          # Create summary file
+          echo "Performance Test Execution Summary" > test-results/test-summary.txt
+          echo "=====================================" >> test-results/test-summary.txt
+          echo "Test Type: ${{ github.event.inputs.test_type }}" >> test-results/test-summary.txt
+          echo "Target: ${{ github.event.inputs.target_endpoint }}" >> test-results/test-summary.txt
+          echo "VUsers: ${{ github.event.inputs.v_users }}" >> test-results/test-summary.txt
+          echo "Duration: ${{ github.event.inputs.test_duration }}" >> test-results/test-summary.txt
+          echo "Timestamp: $(date -u)" >> test-results/test-summary.txt
+          echo "GitHub Run: ${{ github.run_id }}" >> test-results/test-summary.txt
+          
+          # Ensure at least basic files exist
+          [ ! -f test-results/${{ github.event.inputs.test_type }}-test-results.json ] && echo '{"status": "no results generated"}' > test-results/${{ github.event.inputs.test_type }}-test-results.json
+          [ ! -f test-results/k6-${{ github.event.inputs.test_type }}-test.log ] && echo "No k6 log generated for ${{ github.event.inputs.test_type }} test" > test-results/k6-${{ github.event.inputs.test_type }}-test.log
+          
+          echo "Final test-results contents:"
+          ls -la test-results/
+          
       - name: Upload test results as artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -178,6 +250,7 @@ jobs:
           name: performance-test-results-${{ github.event.inputs.test_type }}
           path: test-results/
           retention-days: 30
+          if-no-files-found: warn
           
       - name: Set up Java for Allure
         if: always()
