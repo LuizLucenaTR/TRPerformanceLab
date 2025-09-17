@@ -64,7 +64,10 @@ jobs:
           curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz | tar xvz --strip-components 1
           sudo mv k6 /usr/local/bin/
           chmod +x /usr/local/bin/k6
+          echo "📦 k6 installed successfully:"
           k6 version
+          echo "🔧 Available k6 options:"
+          k6 run --help | head -20 || echo "Help not available"
           
       - name: Create results directory
         run: |
@@ -102,12 +105,10 @@ jobs:
           echo "🚀 Starting Load Test with detailed logging..."
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
           
-          # Run k6 with detailed logging and continue on threshold failures
+          # Run k6 with JSON output and continue on threshold failures
           echo "🚀 Executing k6 load test..."
-          k6 run --verbose --log-output=file=test-results/k6-load-test.log \
-                 --no-thresholds-abort \
-                 --out json=test-results/load-test-results.json \
-                 tests/performance/load_test_scenario.js || true
+          k6 run --out json=test-results/load-test-results.json \
+                 tests/performance/load_test_scenario.js 2>&1 | tee test-results/k6-load-test.log || true
           
           echo "✅ Load Test completed (check logs for details)"
           
@@ -148,12 +149,10 @@ jobs:
           echo "🚀 Starting Stress Test with detailed logging..."
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
           
-          # Run k6 with detailed logging and continue on threshold failures
+          # Run k6 with JSON output and continue on threshold failures
           echo "🚀 Executing k6 stress test..."
-          k6 run --verbose --log-output=file=test-results/k6-stress-test.log \
-                 --no-thresholds-abort \
-                 --out json=test-results/stress-test-results.json \
-                 tests/performance/stress_test_scenario.js || true
+          k6 run --out json=test-results/stress-test-results.json \
+                 tests/performance/stress_test_scenario.js 2>&1 | tee test-results/k6-stress-test.log || true
           
           echo "✅ Stress Test completed (check logs for details)"
           
