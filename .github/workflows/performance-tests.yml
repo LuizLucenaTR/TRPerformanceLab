@@ -105,6 +105,28 @@ jobs:
           echo "🚀 Starting Load Test with detailed logging..."
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
           
+          # Test network connectivity first
+          echo "🌐 TESTANDO CONECTIVIDADE DE REDE:"
+          echo "Target: $TARGET_ENDPOINT"
+          
+          # Extract domain from URL
+          DOMAIN=$(echo $TARGET_ENDPOINT | sed -E 's|https?://([^/]+).*|\1|')
+          echo "Domain: $DOMAIN"
+          
+          # Test DNS resolution
+          echo "🔍 DNS Resolution test:"
+          nslookup $DOMAIN || echo "❌ DNS resolution failed"
+          
+          # Test ping (may not work due to ICMP blocking, but worth trying)
+          echo "🏓 Ping test (3 packets):"
+          ping -c 3 $DOMAIN || echo "❌ Ping failed (normal for many servers)"
+          
+          # Test HTTPS connection with curl
+          echo "🔗 HTTPS Connection test:"
+          timeout 30 curl -v --connect-timeout 10 --max-time 30 -I "$TARGET_ENDPOINT" || echo "❌ HTTPS connection failed"
+          
+          echo "========================================"
+          
           # Print the exact command that will be executed
           echo "📝 COMANDO K6 EXATO QUE SERÁ EXECUTADO:"
           echo "k6 run --out json=test-results/load-test-results.json tests/performance/load_test_scenario.js"
@@ -162,6 +184,28 @@ jobs:
         run: |
           echo "🚀 Starting Stress Test with detailed logging..."
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
+          
+          # Test network connectivity first
+          echo "🌐 TESTANDO CONECTIVIDADE DE REDE:"
+          echo "Target: $TARGET_ENDPOINT"
+          
+          # Extract domain from URL
+          DOMAIN=$(echo $TARGET_ENDPOINT | sed -E 's|https?://([^/]+).*|\1|')
+          echo "Domain: $DOMAIN"
+          
+          # Test DNS resolution
+          echo "🔍 DNS Resolution test:"
+          nslookup $DOMAIN || echo "❌ DNS resolution failed"
+          
+          # Test ping (may not work due to ICMP blocking, but worth trying)
+          echo "🏓 Ping test (3 packets):"
+          ping -c 3 $DOMAIN || echo "❌ Ping failed (normal for many servers)"
+          
+          # Test HTTPS connection with curl
+          echo "🔗 HTTPS Connection test:"
+          timeout 30 curl -v --connect-timeout 10 --max-time 30 -I "$TARGET_ENDPOINT" || echo "❌ HTTPS connection failed"
+          
+          echo "========================================"
           
           # Print the exact command that will be executed
           echo "📝 COMANDO K6 EXATO QUE SERÁ EXECUTADO:"
