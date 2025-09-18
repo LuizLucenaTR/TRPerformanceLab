@@ -210,6 +210,19 @@ export function setup() {
   console.log(`Base VUsers: ${V_USERS}, Max Stress VUsers: ${MAX_STRESS_VUS}`);
   console.log(`Stress Multiplier: ${STRESS_MULTIPLIER}x`);
   
+  // DEBUG: Print all environment variables being used by k6
+  console.log('📝 K6 SCRIPT - VARIÁVEIS DE AMBIENTE RECEBIDAS:');
+  console.log(`  - TARGET_ENDPOINT: "${TARGET_ENDPOINT}"`);
+  console.log(`  - V_USERS: "${V_USERS}"`);
+  console.log(`  - TEST_DURATION: "${TEST_DURATION}"`);
+  console.log(`  - RAMP_UP_TIME: "${RAMP_UP_TIME}"`);
+  console.log(`  - RPS_RATE: "${RPS_RATE}"`);
+  console.log(`  - AUTH_TYPE: "${AUTH_TYPE}"`);
+  console.log(`  - BASIC_AUTH_USER: "${BASIC_AUTH_USER}"`);
+  console.log(`  - BASIC_AUTH_PASS: "${BASIC_AUTH_PASS ? '*'.repeat(BASIC_AUTH_PASS.length) : ''}"`);
+  console.log(`  - BEARER_TOKEN: "${BEARER_TOKEN ? '*'.repeat(Math.min(BEARER_TOKEN.length, 10)) + '...' : ''}"`);
+  console.log('========================================');
+  
   // Verify the target endpoint is accessible before starting stress test
   const testResponse = http.get(TARGET_ENDPOINT);
   if (testResponse.status === 0) {

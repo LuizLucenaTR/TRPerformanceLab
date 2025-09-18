@@ -140,6 +140,20 @@ export default function () {
 export function setup() {
   console.log('Starting Load Test...');
   console.log(`Testing endpoint: ${TARGET_ENDPOINT}`);
+  
+  // DEBUG: Print all environment variables being used by k6
+  console.log('📝 K6 SCRIPT - VARIÁVEIS DE AMBIENTE RECEBIDAS:');
+  console.log(`  - TARGET_ENDPOINT: "${TARGET_ENDPOINT}"`);
+  console.log(`  - V_USERS: "${V_USERS}"`);
+  console.log(`  - TEST_DURATION: "${TEST_DURATION}"`);
+  console.log(`  - RAMP_UP_TIME: "${RAMP_UP_TIME}"`);
+  console.log(`  - RPS_RATE: "${RPS_RATE}"`);
+  console.log(`  - AUTH_TYPE: "${AUTH_TYPE}"`);
+  console.log(`  - BASIC_AUTH_USER: "${BASIC_AUTH_USER}"`);
+  console.log(`  - BASIC_AUTH_PASS: "${BASIC_AUTH_PASS ? '*'.repeat(BASIC_AUTH_PASS.length) : ''}"`);
+  console.log(`  - BEARER_TOKEN: "${BEARER_TOKEN ? '*'.repeat(Math.min(BEARER_TOKEN.length, 10)) + '...' : ''}"`);
+  console.log('========================================');
+  
   return {};
 }
 

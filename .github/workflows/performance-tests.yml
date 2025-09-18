@@ -105,6 +105,20 @@ jobs:
           echo "🚀 Starting Load Test with detailed logging..."
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
           
+          # Print the exact command that will be executed
+          echo "📝 COMANDO K6 EXATO QUE SERÁ EXECUTADO:"
+          echo "k6 run --out json=test-results/load-test-results.json tests/performance/load_test_scenario.js"
+          echo "📝 VARIÁVEIS DE AMBIENTE:"
+          echo "  - TARGET_ENDPOINT=$TARGET_ENDPOINT"
+          echo "  - V_USERS=$V_USERS"
+          echo "  - TEST_DURATION=$TEST_DURATION"
+          echo "  - RAMP_UP_TIME=$RAMP_UP_TIME"
+          echo "  - AUTH_TYPE=$AUTH_TYPE"
+          echo "  - BASIC_AUTH_USER=$BASIC_AUTH_USER"
+          echo "  - BASIC_AUTH_PASS=$BASIC_AUTH_PASS"
+          echo "  - BEARER_TOKEN=$BEARER_TOKEN"
+          echo "========================================"
+          
           # Run k6 with JSON output and continue on threshold failures
           echo "🚀 Executing k6 load test..."
           k6 run --out json=test-results/load-test-results.json \
@@ -148,6 +162,20 @@ jobs:
         run: |
           echo "🚀 Starting Stress Test with detailed logging..."
           echo "Target: $TARGET_ENDPOINT | VUsers: $V_USERS | Duration: $TEST_DURATION | Auth: $AUTH_TYPE"
+          
+          # Print the exact command that will be executed
+          echo "📝 COMANDO K6 EXATO QUE SERÁ EXECUTADO:"
+          echo "k6 run --out json=test-results/stress-test-results.json tests/performance/stress_test_scenario.js"
+          echo "📝 VARIÁVEIS DE AMBIENTE:"
+          echo "  - TARGET_ENDPOINT=$TARGET_ENDPOINT"
+          echo "  - V_USERS=$V_USERS"
+          echo "  - TEST_DURATION=$TEST_DURATION"
+          echo "  - RAMP_UP_TIME=$RAMP_UP_TIME"
+          echo "  - AUTH_TYPE=$AUTH_TYPE"
+          echo "  - BASIC_AUTH_USER=$BASIC_AUTH_USER"
+          echo "  - BASIC_AUTH_PASS=$BASIC_AUTH_PASS"
+          echo "  - BEARER_TOKEN=$BEARER_TOKEN"
+          echo "========================================"
           
           # Run k6 with JSON output and continue on threshold failures
           echo "🚀 Executing k6 stress test..."
