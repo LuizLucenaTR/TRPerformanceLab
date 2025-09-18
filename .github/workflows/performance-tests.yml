@@ -363,7 +363,7 @@ jobs:
             const failureRate = httpReqCount > 0 ? (httpReqFailed / httpReqCount) * 100 : 0;
             
             // Determine test status
-            testResults.status = failureRate > (${{ github.event.inputs.test_type }} === 'stress' ? 30 : 10) ? 'failed' : 'passed';
+            testResults.status = failureRate > ('${{ github.event.inputs.test_type }}' === 'stress' ? 30 : 10) ? 'failed' : 'passed';
             testResults.statusDetails = {
               message: `${{ github.event.inputs.test_type }} test completed with ${failureRate.toFixed(2)}% failure rate`,
               trace: `Target: ${{ github.event.inputs.target_endpoint }}\nRequests: ${httpReqCount}\nFailed: ${httpReqFailed}\nAvg Duration: ${avgDuration.toFixed(2)}ms\nMax VUs: ${vus}`
