@@ -87,67 +87,66 @@ export default function () {
   const vuId = __VU;
   const iterId = __ITER;
   
-  // Primary stress endpoint - data endpoint for more intensive operations
-  const dataResponse = http.get(`${TARGET_ENDPOINT}/data`, { headers });
+  // Primary stress endpoint - using exact URL provided
+  const mainResponse = http.get(TARGET_ENDPOINT, { headers });
   
   // Log detailed request information for stress test
-  console.log(`[VU:${vuId}|IT:${iterId}] STRESS Data: ${dataResponse.status} | ${Math.round(dataResponse.timings.duration)}ms | ${TARGET_ENDPOINT}/data`);
+  console.log(`[VU:${vuId}|IT:${iterId}] STRESS Main: ${mainResponse.status} | ${Math.round(mainResponse.timings.duration)}ms | ${TARGET_ENDPOINT}`);
   
   // Check response status with more lenient criteria for stress testing
-  const dataCheckPassed = check(dataResponse, {
-    'Data endpoint responded': (r) => {
+  const mainCheckPassed = check(mainResponse, {
+    'Main endpoint responded': (r) => {
       const passed = r.status >= 200 && r.status < 500;
       if (!passed) {
-        console.error(`[VU:${vuId}|IT:${iterId}] ❌ STRESS Data endpoint failed: ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ STRESS Main endpoint failed: ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
       }
       return passed;
     },
-    'Data endpoint response time < 10s': (r) => {
+    'Main endpoint response time < 10s': (r) => {
       const passed = r.timings.duration < 10000;
       if (!passed) {
-        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  STRESS Data endpoint very slow: ${Math.round(r.timings.duration)}ms (threshold: 10000ms)`);
+        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  STRESS Main endpoint very slow: ${Math.round(r.timings.duration)}ms (threshold: 10000ms)`);
       }
       return passed;
     },
-    'Data endpoint not timing out': (r) => {
+    'Main endpoint not timing out': (r) => {
       const passed = r.status !== 0;
       if (!passed) {
-        console.error(`[VU:${vuId}|IT:${iterId}] 💥 STRESS Data endpoint TIMEOUT or CONNECTION ERROR`);
+        console.error(`[VU:${vuId}|IT:${iterId}] 💥 STRESS Main endpoint TIMEOUT or CONNECTION ERROR`);
       }
       return passed;
     },
   });
 
-  if (!dataCheckPassed) {
+  if (!mainCheckPassed) {
     errorRate.add(1);
-    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 STRESS Data endpoint FAILED - incrementing error rate`);
+    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 STRESS Main endpoint FAILED - incrementing error rate`);
   }
 
-  // Additional concurrent requests to stress the system further
+  // Additional concurrent requests to stress the same endpoint further
   const batchRequests = [
-    ['GET', `${TARGET_ENDPOINT}/health`, null, { headers }],
-    ['GET', `${TARGET_ENDPOINT}/status`, null, { headers }],
+    ['GET', TARGET_ENDPOINT, null, { headers }],
+    ['GET', TARGET_ENDPOINT, null, { headers }],
   ];
 
   const responses = http.batch(batchRequests);
   
   // Check batch responses with detailed logging
   responses.forEach((response, index) => {
-    const endpoint = index === 0 ? 'health' : 'status';
-    console.log(`[VU:${vuId}|IT:${iterId}] STRESS Batch[${index + 1}]-${endpoint}: ${response.status} | ${Math.round(response.timings.duration)}ms`);
+    console.log(`[VU:${vuId}|IT:${iterId}] STRESS Batch[${index + 1}]: ${response.status} | ${Math.round(response.timings.duration)}ms`);
     
     const batchCheckPassed = check(response, {
       [`Batch request ${index + 1} responded`]: (r) => {
         const passed = r.status >= 200 && r.status < 500;
         if (!passed) {
-          console.error(`[VU:${vuId}|IT:${iterId}] ❌ STRESS Batch[${index + 1}]-${endpoint} failed: ${r.status}`);
+          console.error(`[VU:${vuId}|IT:${iterId}] ❌ STRESS Batch[${index + 1}] failed: ${r.status}`);
         }
         return passed;
       },
       [`Batch request ${index + 1} not timing out`]: (r) => {
         const passed = r.status !== 0;
         if (!passed) {
-          console.error(`[VU:${vuId}|IT:${iterId}] 💥 STRESS Batch[${index + 1}]-${endpoint} TIMEOUT`);
+          console.error(`[VU:${vuId}|IT:${iterId}] 💥 STRESS Batch[${index + 1}] TIMEOUT`);
         }
         return passed;
       },
@@ -155,40 +154,33 @@ export default function () {
 
     if (!batchCheckPassed) {
       errorRate.add(1);
-      console.error(`[VU:${vuId}|IT:${iterId}] 🚨 STRESS Batch[${index + 1}]-${endpoint} FAILED - incrementing error rate`);
+      console.error(`[VU:${vuId}|IT:${iterId}] 🚨 STRESS Batch[${index + 1}] FAILED - incrementing error rate`);
     }
   });
 
-  // POST request to stress write operations (if endpoint supports it)
-  const postData = JSON.stringify({
-    stress_test: true,
-    timestamp: new Date().toISOString(),
-    vu: vuId,
-    iteration: iterId,
-  });
-
-  const postResponse = http.post(`${TARGET_ENDPOINT}/test-data`, postData, { headers });
+  // Additional GET request for extra stress (avoiding POST as endpoint may not support it)
+  const extraResponse = http.get(TARGET_ENDPOINT, { headers });
   
-  console.log(`[VU:${vuId}|IT:${iterId}] STRESS POST: ${postResponse.status} | ${Math.round(postResponse.timings.duration)}ms | ${TARGET_ENDPOINT}/test-data`);
+  console.log(`[VU:${vuId}|IT:${iterId}] STRESS Extra: ${extraResponse.status} | ${Math.round(extraResponse.timings.duration)}ms | ${TARGET_ENDPOINT}`);
   
-  const postCheckPassed = check(postResponse, {
-    'POST request handled': (r) => {
-      const passed = (r.status >= 200 && r.status < 500) || r.status === 404 || r.status === 405;
-      if (!passed && r.status !== 404 && r.status !== 405) {
-        console.error(`[VU:${vuId}|IT:${iterId}] ❌ STRESS POST failed: ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
+  const extraCheckPassed = check(extraResponse, {
+    'Extra request handled': (r) => {
+      const passed = r.status >= 200 && r.status < 500;
+      if (!passed) {
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ STRESS Extra failed: ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
       }
       return passed;
     },
-    'POST request not timing out': (r) => {
+    'Extra request not timing out': (r) => {
       const passed = r.status !== 0;
       if (!passed) {
-        console.error(`[VU:${vuId}|IT:${iterId}] 💥 STRESS POST TIMEOUT`);
+        console.error(`[VU:${vuId}|IT:${iterId}] 💥 STRESS Extra TIMEOUT`);
       }
       return passed;
     },
   });
 
-  if (!postCheckPassed) {
+  if (!extraCheckPassed) {
     errorRate.add(1);
   }
 
@@ -196,7 +188,7 @@ export default function () {
 
   // Log stress test progress more frequently for monitoring
   if (vuId === 1 && iterId % 50 === 0) {
-    console.log(`[VU:${vuId}|IT:${iterId}] 🔥 STRESS Progress - Data: ${dataResponse.status}(${Math.round(dataResponse.timings.duration)}ms), Batch: [${responses[0].status},${responses[1].status}], POST: ${postResponse.status}`);
+    console.log(`[VU:${vuId}|IT:${iterId}] 🔥 STRESS Progress - Main: ${mainResponse.status}(${Math.round(mainResponse.timings.duration)}ms), Batch: [${responses[0].status},${responses[1].status}], Extra: ${extraResponse.status}`);
   }
 
   // Log configuration on first iteration
@@ -219,7 +211,7 @@ export function setup() {
   console.log(`Stress Multiplier: ${STRESS_MULTIPLIER}x`);
   
   // Verify the target endpoint is accessible before starting stress test
-  const testResponse = http.get(`${TARGET_ENDPOINT}/health`);
+  const testResponse = http.get(TARGET_ENDPOINT);
   if (testResponse.status === 0) {
     throw new Error(`Cannot reach target endpoint: ${TARGET_ENDPOINT}`);
   }

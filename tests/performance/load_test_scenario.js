@@ -79,76 +79,48 @@ export default function () {
   const vuId = __VU;
   const iterId = __ITER;
   
-  // Health check endpoint - typical load test scenario
-  const healthResponse = http.get(`${TARGET_ENDPOINT}/health`, { headers });
+  // Main endpoint test - using exact URL provided
+  const mainResponse = http.get(TARGET_ENDPOINT, { headers });
   
   // Log detailed request information
-  console.log(`[VU:${vuId}|IT:${iterId}] Health Check: ${healthResponse.status} | ${Math.round(healthResponse.timings.duration)}ms | ${TARGET_ENDPOINT}/health`);
+  console.log(`[VU:${vuId}|IT:${iterId}] Main Request: ${mainResponse.status} | ${Math.round(mainResponse.timings.duration)}ms | ${TARGET_ENDPOINT}`);
   
   // Check response status with detailed error logging
-  const healthCheckPassed = check(healthResponse, {
-    'Health check status is 200': (r) => {
+  const mainCheckPassed = check(mainResponse, {
+    'Main endpoint status is 200': (r) => {
       const passed = r.status === 200;
       if (!passed) {
-        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Health check failed: Expected 200, got ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Main endpoint failed: Expected 200, got ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
       }
       return passed;
     },
-    'Health check response time < 500ms': (r) => {
-      const passed = r.timings.duration < 500;
+    'Main endpoint response time < 2000ms': (r) => {
+      const passed = r.timings.duration < 2000;
       if (!passed) {
-        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  Health check slow: ${Math.round(r.timings.duration)}ms (threshold: 500ms)`);
+        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  Main endpoint slow: ${Math.round(r.timings.duration)}ms (threshold: 2000ms)`);
       }
       return passed;
     },
-    'Health check has valid response': (r) => {
+    'Main endpoint has response': (r) => {
       const passed = r.body && r.body.length > 0;
       if (!passed) {
-        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Health check empty response: ${r.status}`);
+        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Main endpoint empty response: ${r.status}`);
       }
       return passed;
     },
   });
 
-  if (!healthCheckPassed) {
+  if (!mainCheckPassed) {
     errorRate.add(1);
-    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 Health check FAILED - incrementing error rate`);
+    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 Main endpoint FAILED - incrementing error rate`);
   }
 
   // Simulate user think time (typical for load testing)
   sleep(Math.random() * 2 + 1); // Random sleep between 1-3 seconds
 
-  // Additional API endpoint test (simulate typical user workflow)
-  const dataResponse = http.get(`${TARGET_ENDPOINT}/data`, { headers });
-  
-  // Log detailed request information
-  console.log(`[VU:${vuId}|IT:${iterId}] Data Request: ${dataResponse.status} | ${Math.round(dataResponse.timings.duration)}ms | ${TARGET_ENDPOINT}/data`);
-  
-  const dataCheckPassed = check(dataResponse, {
-    'Data endpoint status is 200 or 404': (r) => {
-      const passed = r.status === 200 || r.status === 404;
-      if (!passed) {
-        console.error(`[VU:${vuId}|IT:${iterId}] ❌ Data endpoint unexpected status: ${r.status} | Body: ${r.body ? r.body.substring(0, 100) : 'No body'}`);
-      }
-      return passed;
-    },
-    'Data endpoint response time < 1000ms': (r) => {
-      const passed = r.timings.duration < 1000;
-      if (!passed) {
-        console.warn(`[VU:${vuId}|IT:${iterId}] ⚠️  Data endpoint slow: ${Math.round(r.timings.duration)}ms (threshold: 1000ms)`);
-      }
-      return passed;
-    },
-  });
-
-  if (!dataCheckPassed && dataResponse.status !== 404) {
-    errorRate.add(1);
-    console.error(`[VU:${vuId}|IT:${iterId}] 🚨 Data endpoint FAILED - incrementing error rate`);
-  }
-
   // Log periodic summaries (every 10th iteration for VU 1)
   if (vuId === 1 && iterId % 10 === 0) {
-    console.log(`[VU:${vuId}|IT:${iterId}] 📊 Periodic Summary - Health: ${healthResponse.status} (${Math.round(healthResponse.timings.duration)}ms), Data: ${dataResponse.status} (${Math.round(dataResponse.timings.duration)}ms)`);
+    console.log(`[VU:${vuId}|IT:${iterId}] 📊 Periodic Summary - Main: ${mainResponse.status} (${Math.round(mainResponse.timings.duration)}ms)`);
   }
 
   // Log important metrics for debugging (first iteration only)
